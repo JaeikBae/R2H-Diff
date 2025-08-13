@@ -1,0 +1,15 @@
+datas/
+results/
+weights*
+models/__pycache__/
+models/utils/__pycache__/
+logs/
+TODO_NOTE
+visualizer/gen_images/
+models/gen_images/
+temp/
+result_jsons/
+test/
+.cursor/
+align_data/
+*.npy
