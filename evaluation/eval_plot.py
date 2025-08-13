@@ -163,14 +163,23 @@ plt.tight_layout(rect=[0.08, 0.07, 0.85, 1])  # 하단 범례 공간 확보
 plt.show()
 
 # %%
+# ============================================
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
+
 import json
 JSON_PATH = '/app/results/align_202508071057_202508070233_epoch_2000/eval/summary.json'
 with open(JSON_PATH, 'r') as f:
     results = json.load(f)
-
-# %%
-
-# %%
+MATERIALS = [
+    'blockwood', 'rubber', 'rock', 'columnwood',
+    'iron', 'stainless', 'leather', 'matteglass',
+    'water', 'plastic', 'plywood', 'clearglass'
+]
 
 # %%
 # Build 12x12 metric matrix from summary.json
@@ -221,7 +230,6 @@ for i, matI in enumerate(MATERIALS):
                 values[metricName][i, j] = float(metricVal)
             except Exception:
                 continue
-print(MATERIALS[0], MATERIALS[1], values['PSNR'][0, 1], values['SSIM'][0, 1], values['RMSE'][0, 1], values['MRAE'][0, 1], values['SAM'][0, 1], values['FID'][0, 1])
 # %%
 VIS_ORDER = [
     'leather',
@@ -270,12 +278,12 @@ def printMeanMetricsTableNoPandas(meanValuesDict, order=None):
 
         for material in materialsSeq:
             metrics = meanValuesDict[material]
-            row = [material] + [f"{metrics[m]:.4f}" for m in metricOrder]
+            row = [material] + [f"{metrics[m]:.2f}" for m in metricOrder]
             rows.append(row)
         # 평균 행 계산 (선택된 materialsSeq 기준)
         if len(materialsSeq) > 0:
             avgVals = { m: float(np.nanmean([meanValuesDict[name][m] for name in materialsSeq])) for m in metricOrder }
-            avgRow = ['Average'] + [f"{avgVals[m]:.4f}" for m in metricOrder]
+            avgRow = ['Average'] + [f"{avgVals[m]:.2f}" for m in metricOrder]
         else:
             avgRow = ['Average', '-', '-', '-', '-', '-', '-']
         # 컬럼별 최대 길이 계산
@@ -294,4 +302,224 @@ def printMeanMetricsTableNoPandas(meanValuesDict, order=None):
         print(f"테이블 출력 중 오류 발생: {e}")
 
 printMeanMetricsTableNoPandas(mean_values_per_material, order=VIS_ORDER)
+# %%
+
+# %% Plot: mean metrics as bar charts (six separate subplots)
+metricOrder = ['MRAE', 'RMSE', 'SAM', 'FID', 'PSNR', 'SSIM']
+metricArrow = {
+    'MRAE': '↓',
+    'RMSE': '↓',
+    'SAM': '↓',
+    'FID': '↓',
+    'PSNR': '↑',
+    'SSIM': '↑'
+}
+
+# Ordered materials (same as table)
+orderedMaterials = [m for m in VIS_ORDER if m in mean_values_per_material]
+remainingMaterials = sorted([m for m in mean_values_per_material.keys() if m not in orderedMaterials])
+materialsSeq = orderedMaterials + remainingMaterials
+
+labels = materialsSeq + ['Average']
+
+fig, axes = plt.subplots(3, 2, figsize=(12, 15))
+axes = axes.flatten()
+
+for idx, metric in enumerate(metricOrder):
+    ax = axes[idx]
+    vals = [mean_values_per_material[name][metric] for name in materialsSeq]
+    avgVal = float(np.nanmean(vals)) if len(vals) > 0 else np.nan
+    # 정렬: 지표별 방향 적용 (↓는 오름차순, ↑는 내림차순)
+    finiteIdx = [i for i, v in enumerate(vals) if np.isfinite(v)]
+    nonFiniteIdx = [i for i, v in enumerate(vals) if not np.isfinite(v)]
+    reverseFlag = True if metricArrow[metric] == '↑' else False
+    finiteSorted = sorted(finiteIdx, key=lambda i: vals[i], reverse=reverseFlag)
+    orderIdx = finiteSorted + nonFiniteIdx
+    sortedMaterials = [materialsSeq[i] for i in orderIdx]
+    sortedVals = [vals[i] for i in orderIdx]
+
+    # 평균 막대 앞에 한 칸 띄우기
+    labels_sorted = sortedMaterials
+    labels_with_gap = labels_sorted + [''] + ['Average']
+    data = np.array(sortedVals + [np.nan] + [avgVal], dtype=float)
+
+    x = np.arange(len(labels_with_gap))
+    colors = ['tab:blue'] * len(sortedVals) + ['none'] + ['tab:orange']
+    # 최고/최악 표시 (Average 제외)
+    dataMaterials = np.array(sortedVals, dtype=float)
+    if np.any(np.isfinite(dataMaterials)):
+        if metricArrow[metric] == '↓':  # 낮을수록 좋음 → 오른쪽 끝이 Best
+            bestIdx = int(np.nanargmin(dataMaterials))
+            worstIdx = int(np.nanargmax(dataMaterials))
+        else:  # 높을수록 좋음 → 왼쪽 끝이 Best
+            bestIdx = int(np.nanargmax(dataMaterials))
+            worstIdx = int(np.nanargmin(dataMaterials))
+        colors[bestIdx] = 'tab:green'
+        colors[worstIdx] = 'tab:red'
+    bars = ax.bar(x, data, color=colors)
+    ax.set_title(f'{metric} {metricArrow[metric]}', fontsize=14)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels_with_gap, rotation=45, ha='right', fontsize=10)
+    ax.grid(axis='y', linestyle='--', alpha=0.4)
+
+    # Annotate values on top of bars
+    for xi, bi, val in zip(x, bars, data):
+        if np.isfinite(val):
+            ax.text(xi, bi.get_height(), f'{val:.2f}', ha='center', va='bottom', fontsize=9, rotation=0)
+        else:
+            ax.text(xi, 0, '', ha='center', va='bottom', fontsize=9, rotation=0, color='dimgray')
+
+# 공통 범례 (Best/ Worst/ Material/ Average)
+legend_handles = [
+    mpatches.Patch(color='tab:green', label='Best'),
+    mpatches.Patch(color='tab:red', label='Worst'),
+    mpatches.Patch(color='tab:blue', label='Material'),
+    mpatches.Patch(color='tab:orange', label='Average')
+]
+fig.legend(handles=legend_handles, loc='lower center', ncol=4, bbox_to_anchor=(0.5, 0.02), fontsize=10, frameon=False)
+plt.tight_layout(rect=[0.02, 0.06, 0.98, 0.98])
+plt.show()
+# %%
+# Diagonal-only single metrics (no averaging): prettier bar plots
+metricOrder_single = ['MRAE', 'RMSE', 'SAM', 'FID', 'PSNR', 'SSIM']
+
+# Use same ordered materials as above table/plots
+orderedMaterials = [m for m in VIS_ORDER if m in MATERIALS]
+materialsSeq = orderedMaterials
+
+fig, axes = plt.subplots(3, 2, figsize=(12, 15))
+axes = axes.flatten()
+
+for idx, metric in enumerate(metricOrder_single):
+    ax = axes[idx]
+    # gather diagonal values in MATERIALS index space
+    vals = []
+    for m in materialsSeq:
+        i = MATERIALS.index(m)
+        vals.append(values[metric][i, i])
+    # 정렬: 지표별 방향 적용 (↓는 오름차순, ↑는 내림차순)
+    finiteIdx = [i for i, v in enumerate(vals) if np.isfinite(v)]
+    nonFiniteIdx = [i for i, v in enumerate(vals) if not np.isfinite(v)]
+    reverseFlag = True if metric in ['PSNR', 'SSIM'] else False
+    finiteSorted = sorted(finiteIdx, key=lambda i: vals[i], reverse=reverseFlag)
+    orderIdx = finiteSorted + nonFiniteIdx
+    sortedMaterials = [materialsSeq[i] for i in orderIdx]
+    sortedVals = [vals[i] for i in orderIdx]
+    materialsSeq_sorted = sortedMaterials
+    data = np.array(sortedVals, dtype=float)
+    avgVal = float(np.nanmean(data)) if data.size > 0 else np.nan
+    # Insert a gap (NaN) before the Average bar to match x length and colors
+    data_plot = np.append(np.append(data, np.nan), avgVal)
+
+    # 평균 막대 앞에 한 칸 띄우기
+    x = np.arange(len(materialsSeq_sorted) + 2)
+    colors = ['tab:blue'] * len(materialsSeq_sorted) + ['none'] + ['tab:orange']
+    # mark best/worst
+    finiteMask = np.isfinite(data)
+    if np.any(finiteMask):
+        try:
+            arrow = '↓' if metric in ['MRAE', 'RMSE', 'SAM', 'FID'] else '↑'
+            if arrow == '↓':  # 낮을수록 좋음 → 오른쪽 끝이 Best
+                bestIdx = int(np.nanargmin(data))
+                worstIdx = int(np.nanargmax(data))
+            else:  # 높을수록 좋음 → 왼쪽 끝이 Best
+                bestIdx = int(np.nanargmax(data))
+                worstIdx = int(np.nanargmin(data))
+            colors[bestIdx] = 'tab:green'
+            colors[worstIdx] = 'tab:red'
+        except Exception:
+            pass
+
+    bars = ax.bar(x, data_plot, color=colors)
+    arrow = '↓' if metric in ['MRAE', 'RMSE', 'SAM', 'FID'] else '↑'
+    ax.set_title(f'{metric} {arrow}', fontsize=14)
+    ax.set_xticks(x)
+    ax.set_xticklabels(materialsSeq_sorted + [''] + ['Average'], rotation=45, ha='right', fontsize=10)
+    ax.grid(axis='y', linestyle='--', alpha=0.4)
+
+    for xi, bi, val in zip(x, bars, data_plot):
+        if np.isfinite(val):
+            ax.text(xi, bi.get_height(), f'{val:.2f}', ha='center', va='bottom', fontsize=9)
+        else:
+            ax.text(xi, 0, '', ha='center', va='bottom', fontsize=9, color='dimgray')
+
+# legend
+legend_handles = [
+    mpatches.Patch(color='tab:green', label='Best'),
+    mpatches.Patch(color='tab:red', label='Worst'),
+    mpatches.Patch(color='tab:blue', label='Material'),
+    mpatches.Patch(color='tab:orange', label='Average')
+]
+fig.legend(handles=legend_handles, loc='lower center', ncol=4, bbox_to_anchor=(0.5, 0.02), fontsize=10, frameon=False)
+plt.tight_layout(rect=[0.02, 0.06, 0.98, 0.98])
+plt.show()
+
+
+# %%
+# Pair-only mean metrics (exclude diagonal): bar charts
+# Compute mean over j != i for each material i using existing 'values' and 'VIS_ORDER'
+pair_mean_values_per_material = {}
+for i, mat in enumerate(MATERIALS):
+    pair_mean_values_per_material[mat] = {}
+    for metric in ['MRAE', 'RMSE', 'SAM', 'FID', 'PSNR', 'SSIM']:
+        row = values[metric][i, :].astype(float)
+        if i < row.size:
+            row = np.delete(row, i)
+        pair_mean_values_per_material[mat][metric] = float(np.nanmean(row))
+
+orderedMaterials = [m for m in VIS_ORDER if m in pair_mean_values_per_material]
+remainingMaterials = sorted([m for m in pair_mean_values_per_material.keys() if m not in orderedMaterials])
+materialsSeq = orderedMaterials + remainingMaterials
+labels = materialsSeq + ['Average']
+
+fig, axes = plt.subplots(3, 2, figsize=(12, 15))
+axes = axes.flatten()
+
+for idx, metric in enumerate(['MRAE', 'RMSE', 'SAM', 'FID', 'PSNR', 'SSIM']):
+    ax = axes[idx]
+    vals = [pair_mean_values_per_material[name][metric] for name in materialsSeq]
+    avgVal = float(np.nanmean(vals)) if len(vals) > 0 else np.nan
+    finiteIdx = [i for i, v in enumerate(vals) if np.isfinite(v)]
+    nonFiniteIdx = [i for i, v in enumerate(vals) if not np.isfinite(v)]
+    reverseFlag = True if metric in ['PSNR', 'SSIM'] else False
+    finiteSorted = sorted(finiteIdx, key=lambda i: vals[i], reverse=reverseFlag)
+    orderIdx = finiteSorted + nonFiniteIdx
+    sortedMaterials = [materialsSeq[i] for i in orderIdx]
+    sortedVals = [vals[i] for i in orderIdx]
+    labels_sorted = sortedMaterials
+    labels_with_gap = labels_sorted + [''] + ['Average']
+    data = np.array(sortedVals + [np.nan] + [avgVal], dtype=float)
+
+    x = np.arange(len(labels_with_gap))
+    colors = ['tab:blue'] * len(sortedVals) + ['none'] + ['tab:orange']
+    dataMaterials = np.array(sortedVals, dtype=float)
+    finiteMask = np.isfinite(dataMaterials)
+    if np.any(finiteMask):
+        arrow = '↓' if metric in ['MRAE', 'RMSE', 'SAM', 'FID'] else '↑'
+        if arrow == '↓':
+            bestIdx = int(np.nanargmin(dataMaterials))
+            worstIdx = int(np.nanargmax(dataMaterials))
+        else:
+            bestIdx = int(np.nanargmax(dataMaterials))
+            worstIdx = int(np.nanargmin(dataMaterials))
+        colors[bestIdx] = 'tab:green'
+        colors[worstIdx] = 'tab:red'
+
+    bars = ax.bar(x, data, color=colors)
+    titleArrow = '↓' if metric in ['MRAE', 'RMSE', 'SAM', 'FID'] else '↑'
+    ax.set_title(f'{metric} {titleArrow}', fontsize=14)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels_with_gap, rotation=45, ha='right', fontsize=10)
+    ax.grid(axis='y', linestyle='--', alpha=0.4)
+
+    for xi, bi, val in zip(x, bars, data):
+        if np.isfinite(val):
+            ax.text(xi, bi.get_height(), f'{val:.2f}', ha='center', va='bottom', fontsize=9)
+        else:
+            ax.text(xi, 0, '', ha='center', va='bottom', fontsize=9, color='dimgray')
+
+fig.legend(handles=legend_handles, loc='lower center', ncol=4, bbox_to_anchor=(0.5, 0.02), fontsize=10, frameon=False)
+plt.tight_layout(rect=[0.02, 0.06, 0.98, 0.98])
+plt.show()
+
 # %%

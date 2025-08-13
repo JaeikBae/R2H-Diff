@@ -275,7 +275,7 @@ class HSIGenerator:
 
 def main():
     parser = argparse.ArgumentParser(description='HSI 생성 및 분석 도구')
-    parser.add_argument('--model_path', type=str, required=True, help='모델 경로')
+    parser.add_argument('--model_path', type=str, default='/app/weights/202508070233/epoch_2000.pth', required=True, help='모델 경로')
     parser.add_argument('--data_dir', type=str, default='/app/datas/val', help='데이터 디렉토리')
     parser.add_argument('--save_dir', type=str, default='/app/results/hsi_analysis', help='결과 저장 디렉토리')
     parser.add_argument('--delta_values', type=int, nargs='+', default=[1, 2, 5, 10], help='분석할 delta 값들')

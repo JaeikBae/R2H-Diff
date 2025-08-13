@@ -35,8 +35,8 @@ parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--beta_schedule', type=str, default='cosine')
 parser.add_argument('--beta_start', type=float, default=0.0001)
 parser.add_argument('--beta_end', type=float, default=0.02)
-parser.add_argument('--num_diffusion_timesteps', type=int, default=1000)
-parser.add_argument('--save_interval', type=int, default=500)
+parser.add_argument('--num_diffusion_timesteps', type=int, default=500)
+parser.add_argument('--save_interval', type=int, default=250)
 parser.add_argument('--num_workers', type=int, default=8)
 parser.add_argument('--resume_path', type=str, default='')
 parser.add_argument('--resume_epoch', type=int, default=None)
@@ -228,34 +228,13 @@ def safe_einsum_reconstruction(pred, f0_t, f1_t, f2_t, z0, f_0, f_1, f_2):
     f_1_clipped = torch.clamp(f_1, -10.0, 10.0)
     f_2_clipped = torch.clamp(f_2, -10.0, 10.0)
     
-    # Proper normalization for each factor tensor
-    # f0: (B, 512, 16) -> normalize along spectral dimension (dim=1)
-    f0_t_norm = f0_t_clipped / (torch.norm(f0_t_clipped, dim=1, keepdim=True) + 1e-6)
-    f_0_norm = f_0_clipped / (torch.norm(f_0_clipped, dim=1, keepdim=True) + 1e-6)
+    re = torch.einsum('brhw,bcr->bchw', pred, f0_t_clipped)
+    re = torch.einsum('bcrw,bhr->bchw', re, f1_t_clipped)
+    re = torch.einsum('bchr,bwr->bchw', re, f2_t_clipped)
     
-    # f1: (B, 256, 64) -> normalize along height dimension (dim=1)
-    f1_t_norm = f1_t_clipped / (torch.norm(f1_t_clipped, dim=1, keepdim=True) + 1e-6)
-    f_1_norm = f_1_clipped / (torch.norm(f_1_clipped, dim=1, keepdim=True) + 1e-6)
-    
-    # f2: (B, 256, 64) -> normalize along width dimension (dim=1)
-    f2_t_norm = f2_t_clipped / (torch.norm(f2_t_clipped, dim=1, keepdim=True) + 1e-6)
-    f_2_norm = f_2_clipped / (torch.norm(f_2_clipped, dim=1, keepdim=True) + 1e-6)
-    
-    # Reconstruction with predicted factors
-    # pred: (B, 32, 16, 16), f0_t_norm: (B, 512, 16)
-    # First einsum: (B, 32, 16, 16) x (B, 512, 16) -> (B, 512, 16, 16)
-    re = torch.einsum('brhw,bcr->bchw', pred, f0_t_norm)
-    
-    # Second einsum: (B, 512, 16, 16) x (B, 256, 64) -> (B, 512, 256, 16)
-    re = torch.einsum('bcrw,bhr->bchw', re, f1_t_norm)
-    
-    # Third einsum: (B, 512, 256, 16) x (B, 256, 64) -> (B, 512, 256, 256)
-    re = torch.einsum('bchr,bwr->bchw', re, f2_t_norm)
-    
-    # Ground truth reconstruction with same process
-    re_gt = torch.einsum('brhw,bcr->bchw', z0, f_0_norm)
-    re_gt = torch.einsum('bcrw,bhr->bchw', re_gt, f_1_norm)
-    re_gt = torch.einsum('bchr,bwr->bchw', re_gt, f_2_norm)
+    re_gt = torch.einsum('brhw,bcr->bchw', z0, f_0_clipped)
+    re_gt = torch.einsum('bcrw,bhr->bchw', re_gt, f_1_clipped)
+    re_gt = torch.einsum('bchr,bwr->bchw', re_gt, f_2_clipped)
     
     return re, re_gt
 
