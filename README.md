@@ -35,26 +35,6 @@ Pick one of the two dataset archives (tar/zip). Content is identical.
 ### ⬇️ Download
 
 - Manual: Open the Google Drive links above in your browser.
-- CLI: Use `gdown` to download from Google Drive.
-
-```bash
-# Install gdown
-pip install gdown
-
-# Dataset (tar)
-gdown --fuzzy "https://drive.google.com/file/d/1LuJwGNK6Mrk7TyBFuQk-311IQa_TweOR/view?usp=sharing"
-
-# Dataset (zip)
-gdown --fuzzy "https://drive.google.com/file/d/1z8WR81dqdwKS4E5PIkzxoB1a1HVTHijS/view?usp=sharing"
-
-# Diffusion model weight
-gdown --fuzzy "https://drive.google.com/file/d/1S7MCVovFixrIuOLl7oVWRdlMd5kJwG6r/view?usp=sharing"
-
-# Upsample model weight
-gdown --fuzzy "https://drive.google.com/file/d/1EyPDn008j1MA-w36OgIwt93xBR8Lo6YB/view?usp=sharing"
-```
-
- 
 
 <a id="en-extract"></a>
 ### 📂 Extract Archives
