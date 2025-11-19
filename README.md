@@ -28,8 +28,8 @@ Pick one of the two dataset archives (tar/zip). Content is identical.
 |---|---|---|---|
 | Dataset (tar) | Train/Val/Test data | `.tar` | [Dataset (tar)](https://drive.google.com/file/d/1LuJwGNK6Mrk7TyBFuQk-311IQa_TweOR/view?usp=sharing) |
 | Dataset (zip) | Train/Val/Test data | `.zip` | [Dataset (zip)](https://drive.google.com/file/d/1z8WR81dqdwKS4E5PIkzxoB1a1HVTHijS/view?usp=sharing) |
-| Diffusion model weights | Trained diffusion model | `.pth` | [Download](https://drive.google.com/file/d/1S7MCVovFixrIuOLl7oVWRdlMd5kJwG6r/view?usp=sharing) |
-| Upsample model weights | Trained upsample model | `.pth` | [Download](https://drive.google.com/file/d/1EyPDn008j1MA-w36OgIwt93xBR8Lo6YB/view?usp=sharing) |
+| Diffusion model weights | Trained diffusion model | `.pth` | [Download](https://drive.google.com/file/d/10dV23EDZmOAytgbXDNPwZ6essYvBriF3/view?usp=sharing) |
+| Upsample model weights | Trained upsample model | `.pth` | [Download](https://drive.google.com/file/d/1dEKVPADcDYf1Q5sCw4vqarhSla18pzxB/view?usp=sharing) |
 
 <a id="en-download"></a>
 ### ⬇️ Download
